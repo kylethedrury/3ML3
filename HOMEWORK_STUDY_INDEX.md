@@ -1,13 +1,13 @@
 # Homework Study Index
 
-This index turns the `HW1`, `HW2`, `HW3`, and `HW4` folders, plus the top-level `HW5` files, into a study sequence.
+This index turns the `HW1`, `HW2`, `HW3`, `HW4`, and `HW5` folders into a study sequence.
 The study guides are:
 
 - `HW1/STUDY_GUIDE.md`
 - `HW2/STUDY_GUIDE.md`
 - `HW3/STUDY_GUIDE.md`
 - `HW4/STUDY_GUIDE.md`
-- `HW5_STUDY_GUIDE.md`
+- `HW5/HW5_STUDY_GUIDE.md`
 
 ## Suggested order
 
@@ -35,6 +35,6 @@ Because of that:
 
 - Start with `HW3/STUDY_GUIDE.md`
 - Then read `HW4/STUDY_GUIDE.md`
-- Then read `HW5_STUDY_GUIDE.md` for the Chapter 10 nonlinear-regression piece
+- Then read `HW5/HW5_STUDY_GUIDE.md` for the Chapter 10 nonlinear-regression piece
 - Use `HW2/STUDY_GUIDE.md` for optimization and transformed-regression review
 - Use `HW1/STUDY_GUIDE.md` only as a mechanics refresher

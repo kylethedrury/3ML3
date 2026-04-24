@@ -2,8 +2,8 @@
 
 ## What HW5 is in this workspace
 
-Unlike `HW1` through `HW4`, `HW5` is not stored in its own folder.
-The main files are at the project root:
+`HW5` is stored in its own folder in this workspace.
+The main files are:
 
 - `HW5.pdf`
 - `HW5.ipynb`
@@ -21,6 +21,7 @@ There are also LaTeX build byproducts:
 - `HW5_report.aux`
 - `HW5_report.log`
 - `HW5_report.out`
+
 
 ## What this homework covers
 
