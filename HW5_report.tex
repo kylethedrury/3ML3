@@ -1,0 +1,366 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, bm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage[hypertexnames=false]{hyperref}
+\usepackage{float}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\title{Datasci 3ML3 Homework 5\\
+\large Convolution Networks, Non-Linear Regression, Kernelization, Model Tuning, and Tree Regression}
+\author{Kyle Drury}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+
+\noindent This submission was prepared without modifying the original homework files. Figure slots below compile as placeholders until image files are added directly to the working directory using the filenames shown in each placeholder.
+
+\section*{Exercise 1: Convolution Networks}
+
+\subsection*{1.1 Data generation}
+I generated $1000$ training images and $1000$ validation images of size $50 \times 50 \times 1$, with exactly $500$ vertical-stripe images and $500$ horizontal-stripe images in each split. After generation, the pixel values were normalized from $\{0,255\}$ to the interval $[0,1]$. The code used to construct the dataset is shown in Figure \ref{fig:1}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{code1.png}
+    \caption{Custom function for generating training and validation sets.}
+    \label{fig:1}
+\end{figure}
+
+\subsection*{1.2 Labels}
+The labels were encoded as $0=$ vertical and $1=$ horizontal. Since the model in Exercise 1 is trained with categorical cross-entropy, the label vectors were then converted to one-hot form using Keras. The corresponding code is shown in Figures \ref{fig:2} and \ref{fig:3}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{code2.png}
+    \caption{Code for 1.2, featuring a custom function for training the model.}
+    \label{fig:2}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{code3.png}
+    \includegraphics[width=1\linewidth]{code4.png}
+    \caption{Custom functions for training the model from Exercise 1.}
+    \label{fig:3}
+\end{figure}
+
+\subsection*{1.3 Network architecture and parameter count}
+I used the requested architecture with one practical assumption: the convolution layer used ``same'' padding. This keeps the spatial size at $50 \times 50$, so the required $50 \times 50$ pooling layer is well-defined. The model is:
+\[
+\texttt{Conv2D}(1,\; 5 \times 5,\; \text{linear}) \rightarrow
+\texttt{MaxPool}(50 \times 50) \rightarrow
+\texttt{Flatten} \rightarrow
+\texttt{Dense}(2,\; \text{softmax}).
+\]
+The trainable parameter count can be computed layer by layer. The convolution layer has one $5 \times 5$ filter acting on a single input channel, so it contains
+\[
+5 \cdot 5 \cdot 1 = 25
+\]
+weights, plus one bias term for the filter, for a total of $26$ parameters. The max-pooling layer has no trainable parameters, and the flatten layer also has none because it only reshapes the tensor.
+
+Because I used ``same'' padding, the convolution output still has shape $50 \times 50 \times 1$. Applying a $50 \times 50$ max-pooling window reduces this to $1 \times 1 \times 1$, so after flattening, the dense output layer receives only one scalar input. Since the dense layer has $2$ output neurons, it needs
+\[
+1 \cdot 2 = 2
+\]
+weights and $2$ bias terms, giving $4$ parameters in the final layer. Hence, the total parameter count is
+\[
+(5 \cdot 5 \cdot 1 \cdot 1 + 1) + (1 \cdot 2 + 2) = 26 + 4 = 30.
+\]
+
+\subsection*{1.4 Training curves}
+The baseline model reached a final training accuracy of $1.0000$ and a final validation accuracy of $1.0000$. The final validation loss was $0.1271$, and the validation accuracy first reached $100\%$ at epoch $37$. See Figure \ref{fig:4}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{plots1.png}
+    \caption{Accuracy and loss over epochs.}
+    \label{fig:4}
+\end{figure}
+
+\subsection*{1.5 Learned kernel}
+The learned $5 \times 5$ kernel was
+\[
+\begin{bmatrix}
+ 0.2089 & -0.5544 &  0.3448 & -0.7104 &  0.4404 \\
+ 0.0144 & -0.1082 & -0.0844 & -0.2005 &  0.3766 \\
+ 0.2093 & -0.2122 & -0.2803 & -0.2312 &  0.4406 \\
+ 0.2164 & -0.3685 & -0.0520 & -0.4560 &  0.4406 \\
+ 0.2162 & -0.2528 & -0.2148 & -0.2665 &  0.4402
+\end{bmatrix}.
+\]
+The weights vary much more strongly by column than by row, which means the filter is primarily sensitive to vertical structure. That is reasonable: vertical stripes create sharp column-wise responses, and the global max-pooling layer can retain the strongest such response anywhere in the image. Horizontal stripes do not excite this filter similarly. See Figure \ref{fig:5} for reference.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{kernel.png}
+    \caption{Grey scale plot of the kernel for 1.5.}
+    \label{fig:5}
+\end{figure}
+
+\subsection*{1.6 Experiments}
+Table~\ref{tab:ex1-variants} summarizes a few variations of the baseline network.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.3in}cc>{\raggedright\arraybackslash}p{1.45in}}
+\toprule
+Variant & Final val. acc. & Final val. loss & Comment \\
+\midrule
+Baseline: linear, max pool, $5 \times 5$ & 1.000 & 0.1271 & Perfect classification \\
+ReLU conv, max pool, $5 \times 5$ & 1.000 & 0.2080 & Still works, but less confident \\
+Linear conv, average pool, $5 \times 5$ & 0.589 & 0.6921 & Near chance; pooling washes out signal \\
+Linear conv, max pool, $3 \times 3$ & 0.500 & 0.6922 & Fails in this setup \\
+Linear conv, max pool, $7 \times 7$ & 1.000 & 0.0743 & Best loss among tested variants \\
+\bottomrule
+\end{tabular}
+\caption{Exercise 1 architecture variations.}
+\label{tab:ex1-variants}
+\end{table}
+
+The ReLU version still separated the classes, but the loss stayed higher than with a linear filter. Average pooling performed poorly because it averages responses over the entire image. Therefore, it suppresses the single strongest orientation cue that max pooling keeps. With only one filter and one pooled summary value, the $3 \times 3$ kernel was too local to learn a reliable global orientation detector. Meanwhile, the $7 \times 7$ kernel had a large enough receptive field to do so easily.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+
+\section*{Exercise 2: Non-linear Regression}
+
+The code used for this exercise is shown in Figures \ref{fig:6} and \ref{fig:7}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=.9\linewidth]{code5.png}
+    \caption{Helper functions used for Exercise 2.}
+    \label{fig:6}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{code6.png}
+    \caption{Exercise 2 main code.}
+    \label{fig:7}
+\end{figure}
+
+I used the two sinusoidal hidden features specified in the assignment and optimized the weights with full-batch gradient descent for $2000$ iterations, with a step size of $\alpha = 1$. Because the objective is non-convex, I ran $50$ random restarts and kept the run with the smallest final cost.
+
+Let
+\[
+W_f =
+\begin{bmatrix}
+ 6.3728 & -3.5684 \\
+-4.2981 &  2.8932 \\
+-7.4979 &  1.7070
+\end{bmatrix},
+\qquad
+W_\ell =
+\begin{bmatrix}
+-0.1521 & -0.6300 \\
+-1.0066 &  0.5629 \\
+-0.2575 & -0.9997
+\end{bmatrix}.
+\]
+Here, each column of $W_f$ defines one sinusoidal feature
+\[
+f_j(\bm{x}) = \sin\!\left(w_{j,0} + w_{j,1}x_1 + w_{j,2}x_2\right),
+\]
+and $W_\ell$ is the linear readout that maps the two hidden features to the two output rows in the dataset.
+
+Using these parameters, the cost decreased from $1.3349$ at initialization to $0.03854$ after $2000$ iterations. See Figure \ref{fig:8}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{plots1.png}
+    \caption{Least-squares cost versus iteration for gradient descent on the multiple-sine-wave regression problem.}
+    \label{fig:8}
+\end{figure}
+
+This run gives a good fit to the data and is consistent with the behaviour described in the text: the hidden layer learns a small set of sinusoidal basis functions, and the output layer combines them linearly to reproduce the target responses. As an interpretation of Figure 10.7 in the book, it plots the learned sinusoidal features and the resulting fitted outputs over the input space.
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section*{Exercise 3: Model Tuning on MNIST}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{code7.png}
+    \includegraphics[width=1\linewidth]{code8.png}
+    \caption{Helper functions for Exercise 3.}
+    \label{fig:9}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{code9.png}
+    \caption{Helper functions (cont'd) for Exercise 3.}
+    \label{fig:10}
+\end{figure}
+
+\subsection*{3.1 Learning-rate sweep}
+
+Table~\ref{tab:ex3-lr} summarizes the validation-loss sweep for $\alpha \in \{1.0, 0.5, 0.1, 0.01, 0.001\}$.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{cccc}
+\toprule
+Learning rate & Best val. loss & Best epoch & Best val. acc. \\
+\midrule
+1.0   & 2.1435 & 9  & 0.1930 \\
+0.5   & 1.7414 & 10 & 0.3645 \\
+0.1   & 0.4785 & 8  & 0.9277 \\
+0.01  & 0.1386 & 1  & 0.9719 \\
+0.001 & 0.07495 & 6 & 0.9783 \\
+\bottomrule
+\end{tabular}
+\caption{Validation performance for the one-hidden-layer MNIST classifier under different learning rates.}
+\label{tab:ex3-lr}
+\end{table}
+
+As the learning rate decreases from $1.0$ to $0.001$, the training becomes dramatically more stable and the validation loss improves by more than an order of magnitude. The run with $\alpha = 1.0$ is clearly too aggressive: the model never settles and remains close to chance performance. The run with $\alpha = 0.5$ is still too large. At $\alpha = 0.1$ the model learns, but the validation curve oscillates. At $\alpha = 0.01$ the model learns very quickly but already reaches its best validation loss at epoch $1$, which suggests overshooting and early overfitting. Among these trials, $\alpha = 0.001$ is the most reliable choice. See Figures \ref{fig:9} and \ref{fig:10} for the code used in this exercise. See Figure \ref{fig:11} for the plots of validation loss over epoch for the various choices of $\alpha$.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=.7\linewidth]{plots2.png}
+    \caption{Validation loss versus epoch for the MNIST learning-rate sweep with $\alpha = 1.0, 0.5, 0.1, 0.01,$ and $0.001$.}
+    \label{fig:11}
+\end{figure}
+
+\subsection*{3.2 Small model}
+For the logistic-regression model, the best validation loss was $0.2635$ at epoch $24$, and the final validation loss after $50$ epochs was $0.2669$. This is only a very small increase, so there is not a sharp overfitting threshold. The curve has a broad, shallow minimum rather than a crisp turning point. See Figure \ref{fig:12}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.62\linewidth]{plots3.png}
+    \caption{Validation loss versus epoch for the small MNIST model consisting of a single softmax layer.}
+    \label{fig:12}
+\end{figure}
+
+\subsection*{3.3 Larger model}
+For the larger network with two hidden layers of size $96$, the best validation loss was $0.1038$ at epoch $8$, while the final validation loss at epoch $50$ increased to $0.1958$. In this case, there is a much clearer overfitting region: after roughly epoch $8$, the model keeps fitting the training data, but the validation loss deteriorates substantially. Notably, the validation accuracy stays high, which shows that the loss is capturing overconfident wrong predictions that accuracy alone can hide. See Figure \ref{fig:13}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{plots4.png}
+    \caption{Validation loss versus epoch for the larger MNIST model with two hidden layers of width 96.}
+    \label{fig:13}
+\end{figure}
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section*{Exercise 4: Kernelization of $l_2$-Regularized Least Squares}
+
+Let $\phi(\bm{x}_p) \in \mathbb{R}^M$ be the feature vector of sample $p$, and define the feature matrix
+\[
+\Phi = \begin{bmatrix}
+\phi(\bm{x}_1) & \phi(\bm{x}_2) & \cdots & \phi(\bm{x}_P)
+\end{bmatrix}
+\in \mathbb{R}^{M \times P},
+\qquad
+\bm{y} \in \mathbb{R}^P.
+\]
+The $l_2$-regularized least-squares objective is
+\[
+J(\bm{w}) = \frac{1}{2}\|\Phi^\top \bm{w} - \bm{y}\|_2^2 + \frac{\lambda}{2}\|\bm{w}\|_2^2.
+\]
+Taking the gradient and setting it to zero gives
+\[
+\nabla_{\bm{w}}J(\bm{w})
+= \Phi(\Phi^\top \bm{w} - \bm{y}) + \lambda \bm{w}
+= \bm{0},
+\]
+so
+\[
+(\Phi\Phi^\top + \lambda I)\bm{w} = \Phi \bm{y}.
+\]
+The right-hand side lies in the span of the training features, so write
+\[
+\bm{w} = \Phi \bm{a}
+\]
+for some coefficient vector $\bm{a} \in \mathbb{R}^P$. Substituting into the normal equation yields
+\[
+(\Phi\Phi^\top + \lambda I)\Phi \bm{a} = \Phi \bm{y},
+\]
+which can be rewritten as
+\[
+\Phi(\Phi^\top \Phi \bm{a} + \lambda \bm{a} - \bm{y}) = \bm{0}.
+\]
+Therefore $\bm{a}$ satisfies
+\[
+(K + \lambda I)\bm{a} = \bm{y},
+\qquad
+K = \Phi^\top \Phi.
+\]
+Since
+\[
+K_{pq} = \phi(\bm{x}_p)^\top \phi(\bm{x}_q) = k(\bm{x}_p,\bm{x}_q),
+\]
+the solution is kernelized:
+\[
+\bm{a} = (K + \lambda I)^{-1}\bm{y},
+\qquad
+\bm{w} = \Phi (K + \lambda I)^{-1}\bm{y}.
+\]
+For a new point $\bm{x}$, the prediction becomes
+\[
+\hat{y}(\bm{x})
+= \phi(\bm{x})^\top \bm{w}
+= \phi(\bm{x})^\top \Phi (K + \lambda I)^{-1}\bm{y}
+= \bm{k}(\bm{x})^\top (K + \lambda I)^{-1}\bm{y},
+\]
+where
+\[
+\bm{k}(\bm{x}) =
+\begin{bmatrix}
+k(\bm{x}, \bm{x}_1) & \cdots & k(\bm{x}, \bm{x}_P)
+\end{bmatrix}^\top.
+\]
+This is the kernelized form of $l_2$-regularized least-squares regression. The unregularized case is recovered by setting $\lambda = 0$ whenever the inverse exists.
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section*{Exercise 5: Tree Regression}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{code10.png}
+    \caption{Code used for Exercise 5.}
+    \label{fig:14}
+\end{figure}
+
+I implemented a custom one-dimensional tree regressor that only needs to predict at the sampled locations $x_p$. For a node spanning indices $[i_\ell, i_r]$, the code tests every possible split between adjacent points, computes the least-squares cost of the two resulting leaves, and chooses the split with the minimum total squared error. Recursion stops either when the requested depth is reached or when the interval contains a single point, in which case the leaf value is simply the mean of the $y$-values in that interval. See Figure \ref{fig:14}.
+
+For the noisy $\sin(x)$ dataset from the assignment, the custom implementation agrees with scikit-learn to machine precision:
+\[
+\max_p |y^{(2)}_{\text{sklearn},p} - y^{(2)}_{\text{custom},p}| = 2.22 \times 10^{-16},
+\]
+\[
+\max_p |y^{(5)}_{\text{sklearn},p} - y^{(5)}_{\text{custom},p}| = 0.
+\]
+So the two regressors agree on the sampled points for both depth-$2$ and depth-$5$ trees. See Figure \ref{fig:15}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{code11.png}
+    \caption{Original noisy $\sin(x)$ data together with the custom tree-regression outputs and scikit-learn outputs for maximum depths 2 and 5.}
+    \label{fig:15}
+\end{figure}
+
+\end{document}

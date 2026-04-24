@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+.jupyter_runtime/
+
+# LaTeX build outputs
+*.aux
+*.log
+*.out
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Nested external repo inside this project
+mlr-assets/

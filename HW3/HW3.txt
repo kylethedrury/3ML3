@@ -1,0 +1,335 @@
+McMaster University, DATASCI 3ML3                               February 6 - February 27 2026
+http://avenue.mcmaster.ca/
+
+
+                               Homework 3 :
+                   Two-Class and Multi-Class Classification
+You should submit on crowdmark in the format required there.
+
+Due: Friday February 27 2026, 11:30pm on crowdmark, with a grace period till the following
+                                  Monday at 11:30pm
+
+ ☛Reading: We have gone through Chapters 2,3,4.1,4.2,4.3.1,5.1,5.2,5.3,5.4,6(except 6.9) and
+ parts of App A,B in Machine Learning Refined. An pdf version of Machine Learning Refined
+ is available at https://github.com/jermwatt/machine learning refined
+
+
+                             Exercise 1 Classifying Breast Cancer
+In this exercise you will compare the efficacy of the Softmax and the Perceptron cost functions
+in terms of the minimal number of misclassifications each can achieve by proper minimization
+via gradient descent on a breast cancer dataset, a description of which you can find here:
+https://archive.ics.uci.edu/ml/datasets/breast+cancer+wisconsin+original . This
+dataset consists of P = 699 data points, each point consisting of N = 9 input of attributes of
+a single individual and output label indicating whether or not the individual does or does not
+have breast cancer. According to the website the rows correspond to:
+
+  1. Sample code number: id number
+
+  2. Clump Thickness: 1 - 10
+
+  3. Uniformity of Cell Size: 1 - 10
+
+  4. Uniformity of Cell Shape: 1 - 10
+
+  5. Marginal Adhesion: 1 - 10
+
+  6. Single Epithelial Cell Size: 1 - 10
+
+  7. Bare Nuclei: 1 - 10
+
+  8. Bland Chromatin: 1 - 10
+
+  9. Normal Nucleoli: 1 - 10
+
+ 10. Mitoses: 1 - 10
+
+ 11. Class: (2 for benign, 4 for malignant)
+
+In the attached data file breast cancer data.csv the Sample code number: id number has
+been removed, the Class has been changed to 1 for benign, -1 for malignant. Finally, the data
+has been arranged column-wise so that each individual correspond to a single column, with the
+final row being the label of each point. (In the original data set the data is arranged row-wise
+
+                                               1
+with each row corresponding to an individual). Also, the data for the Single Epithelial Cell
+Size has been removed so that the data in the end has N = 8 attributes. We can then import
+the feature vectors and the labels with the following commands:
+# data input
+csvname = datapath + ’breast_cancer_data.csv’
+data1 = np.loadtxt(csvname,delimiter = ’,’)
+
+# get input and output of dataset
+x = data1[:-1,:]
+y = data1[-1:,:]
+
+1.1 We now need to implement the cost functions for the softmax, Eq (6.25) and perceptron
+Eq. (6.33) in the book. Finish the implementation of the perceptron below:
+# compute linear combination of input points
+def model(x,w):
+    a = w[0] + np.dot(x.T,w[1:])
+    return a.T
+
+# an implementation of the softmax cost
+def softmax(w):
+    # compute the least squares cost
+    cost = np.sum(np.log(1 + np.exp(-y*model(x,w))))
+    return cost/float(np.size(y))
+
+# an implementation of the perceptron cost
+def perceptron(w):
+
+1.2 Use gradient descent (detailed on the previous assignments) with max its=1000, and a
+random starting vector w = 0.1*np.random.randn(9,1) for both cost functions. For the per-
+ceptron cost function use alpha = 0.1 to determine the weight and cost history. For the
+softmax use alpha = 1.0 to determine the weight and cost history.
+1.3 Use the weight history to track the number of misclassifications as a function of the it-
+erations by implementing a function miscount(w,x,y) that counts the number of misclassifi-
+cations for each w such that we can easily construct a misclassfication history using the com-
+mand miscount history = [miscount(v,x,y) for v in weight history] So, the function
+miscount(w,x,y) would use the arguments w,x in combination with the current model to
+obtain a prediction to be compared with the arguments y.
+1.4 Plot the cost function history and the misclassifcation history versus the number of itera-
+tions for the 2 cost functions together. Determine the minimum number of misclassifications
+for the 2 cost functions. For each of the cost functions modify miscount(w,x,y) to calculate
+only the misclassified malignant cases.
+1.5 We now want to check that we can get very similar results by directly doing a logistic
+regression on the data with a cross entropy cost. In order to do that we create a new integer
+vector yc which is equal to y except all the values of -1 in y have been replaced with a 0.
+Furthermore, note that yc has only a single index. We can do that (clumsily) using:
+
+
+
+
+                                              2
+a=np.argwhere(y>0.9)
+b=np.argwhere(y<-0.9)
+yc=np.arange(699)
+yc[a]=1
+yc[b]=0
+We need yc to be integer because the cross entropy function (p. 134 in the book) has statements
+like np.argwhere(yc==0). We can the use this slightly modified version of the cross entropy
+function where we have added a L2 regularization:
+# define sigmoid function
+def sigmoid(t):
+    return 1/(1 + np.exp(-t))
+
+# the convex cross-entropy cost function
+lam = 2*10**(-3)
+def cross_entropy(w):
+    # compute sigmoid of model
+    a = sigmoid(model(x,w))
+
+     # compute cost of label 0 points
+     ind = np.argwhere(yc == 0)
+     cost = -np.sum(np.log(1 - a[:,ind]))
+
+     # add cost on label 1 points
+     ind = np.argwhere(yc==1)
+     cost -= np.sum(np.log(a[:,ind]))
+
+     # add regularizer
+     cost += lam*np.sum(w[1:]**2)
+
+     # compute cross-entropy
+     return cost/float(np.size(yc))
+Using α = 0.6 and again max its=1000 along with a similar random starting vector calculate
+the weight and cost history using logistic regression with gradient descent. Use the weight
+history to calculate the number of misclassifications. In this case you will need a modified
+miscount function. How will you define a misclassification in this case ?
+
+                                    Exercise 2 Spam Detection
+In this study spam detection using the data set available at
+https://archive.ics.uci.edu/ml/datasets/Spambase. Again the input datapoints have
+been stacked column-wise in the dataset spambase data.csv provided on avenue, with the final
+row being the label of each point which has been set to -1 (not spam) and 1 (spam). There
+are 57 attributes (features) for each of the 4601 samples corresponding to word frequencies and
+character frequencies among others.
+    There are two main problems with a data set like this that is very common for real life data
+sets. First it is quite possible that some of the entries are ’not a number’ or NaN, secondly, how
+should we compare the frequency of different words or characters. A simple solution to this is
+
+
+
+
+                                                3
+for each feature n calculate the mean and the standard deviation:
+                                                v
+                                   P            u    P
+                                 1 X            u1 X
+                          µn =        xp,n σn = t       (xp,n − µn )2                        (1)
+                                P p=1             P p=1
+
+This calculation has to be done skipping occurrences of NaN. We can then replace each occurence
+of NaN with the relevant µn . That solves the first problem. The second problem can be handled
+by standard normalizing each feature, shifting by the mean and dividing with the standard
+deviation. To obtain:
+                                                 xp,n − µn
+                                        xp,n →             .                                 (2)
+                                                     σn
+After this is done each row (feature) will have a mean of 0 and a standard deviation of 1 making
+it much more sensible to compare different features. We can use the following code to do that:
+def standard_normalizer(x):
+    # compute the mean and standard deviation of the input
+    x_means = np.nanmean(x,axis = 1)[:,np.newaxis]
+    x_stds = np.nanstd(x,axis = 1)[:,np.newaxis]
+
+     # check to make sure that x_stds > small threshold, for those not
+     # divide by 1 instead of original standard deviation
+     ind = np.argwhere(x_stds < 10**(-2))
+     if len(ind) > 0:
+         ind = [v[0] for v in ind] # Just keep the row index
+         adjust = np.zeros((x_stds.shape))
+         adjust[ind] = 1.0
+         x_stds += adjust
+     # fill in any nan values with means
+     ind = np.argwhere(np.isnan(x) == True)
+     for i in ind:
+         x[i[0],i[1]] = x_means[i[0]]
+
+     # create standard normalizer function
+     normalizer = lambda data: (data - x_means)/x_stds
+     # create inverse standard normalizer
+     inverse_normalizer = lambda data: data*x_stds + x_means
+     # return normalizer
+     return normalizer,inverse_normalizer
+The standard normalization can then be done in a single command x = normalizer(x) as
+shown in the jupyter notebook for the homework.
+2.1 Use gradient descent (detailed on the previous assignments) with max its=1000, and a
+random starting vector w = 0.1*np.random.randn(N+1,1) to classify the e-mails using the
+softmax and perceptron cost functions. For the perceptron cost function use alpha = 0.1 to
+determine the weight and cost history. For the softmax use alpha = 1. to determine the
+weight and cost history. Use the weight histories to construct the miscount histories for the
+two cost functions and make plots of the cost function histories and miscount histories versus
+the iterations. Comment on your observations.
+2.2 For the two cost functions determine the smallest number of misclassifications achieved and
+convert it to an accuracy. Comment on your observations.
+
+                                               4
+2.3 For the softmax results determine the best w and construct the confusion matrix.
+
+               Exercise 3 Accessing UC Irvine Machine Learning Repository
+The datasets from Exercise 1 and 2 can be obtained directly from the UC Irvine Machine
+Learning Repository at https://archive.ics.uci.edu. If you later want to access datasets
+from the repository, it is useful to know how to do get to them which we will look at in this
+exercise. A small python package is available for accessing the datasets directly and putting
+them into pandas dataframes (see HW2). You need to install the package by executing
+pip install ucimlrepo
+In your python notebook you can now access the pakage:
+from ucimlrepo import fetch ucirepo
+and the two datasets can be obtained using the commands:
+breastcancer = fetch ucirepo(id=15)
+spambase = fetch ucirepo(id=94)
+We can then access the feature vectors and labels(tagets) using the following commands which
+will create pandas dataframes:
+X = breastcancer.data.features
+y = breastcancer.data.targets
+
+
+3.1 For the breast cancer dataset, figure out the command to drop the column
+Single epithelial cell size from X.
+3.2 Again, For the breast cancer dataset, figure out how to replace the value 2 and 4 for
+beningn and malign with a 1 and -1.
+
+                                    Exercise 4 Credit Check
+In this exercise we use a data sheet with a credit rating in credit dataset.csv. This data set
+is described in Example 6.11 in the book by Watt et al. As usual the P = 1000 samples are
+arranged column wise with the last row being 1 (good rating) -1 (bad rating). The N = 20
+input features describe things like current account balance, the duration in months of previous
+credit with the bank etc.
+4.1 As in the previous exercise it is difficult to compare the importance of the different features
+and it therefore makes sense to standard normalize. Perform a standard normalization of the
+input data.
+4.2 Use the perceptron cost function to fit a model using gradient descent with max its=1000,
+and a random starting vector w = 0.1*np.random.randn(N+1,1) and alpha = 0.1. Plot the
+cost function history along with the misclassification history versus the number of iterations.
+Can you achieve the 75% accuracy mentioned in the book ?
+4.3 Determine the confusion matrix for the optimal weights determined with the perceptron
+cost.
+
+                               Exercise 5 3-Class, classification
+In this exercise we will use the 3-class toy data set 3class data.csv shown in Fig. 7.9. We
+shall try to reproduce the data in that figure using the multi-class Perceptron. The implemen-
+tation of the L2 regularized multiclass perceptron is discussed in the book:
+
+
+                                                5
+lam = 10**-5 # our regularization paramter
+def multiclass_perceptron(w):
+    # pre-compute predictions on all points
+    all_evals = model(x,w)
+
+     # compute maximum across data points
+     a = np.max(all_evals,axis = 0)
+
+     # compute cost in compact form using numpy broadcasting
+     b = all_evals[y.astype(int).flatten(),np.arange(np.size(y))]
+     cost = np.sum(a - b)
+
+     # add regularizer
+     cost = cost + lam*np.linalg.norm(w[1:,:],’fro’)**2
+     # return average
+     return cost/float(np.size(y))
+Note that in this case we do not strictly enforce ||w||2 = 1. Instead, we have relaxed this con-
+straint by instead including a regularizer.
+5.1 Use the multi-class perceptron cost function to fit a model using gradient descent with
+max its=1000, and a random starting vector w = 0.1*np.random.randn(3,3) and alpha =
+0.1. Plot the cost function history versus the number of iterations. Can you achieve as good
+a classification as shown in Fig. 7.9 in the book ?
+5.2 Plot the data in the plane along with the decision boundaries. You should get something
+similar but not idetical to what is in the book by Watt et al.
+
+                      Exercise 6 Convexity of least squares cost function
+In this exercise we will verify the convexity of the least squares cost function. This exercise does
+not require any coding. Suppose we have a set of samples S = {(⃗xp , yp )}Pp=1 where ⃗xp ∈ RN
+and yp ∈ R. Usually in least squares regression we want to find a weight vector w   ⃗ ∈ RN +1 such
+that the linear model
+                                             XN
+                                        w0 +      xp,n wn ≃ yp                                   (3)
+                                            n=1
+
+fits the data well. Suppose we use the usual trick of inserting a 1 at the start of each input
+vector so that we can write the model more compactly as
+
+                                            ⃗x˙ Tp w
+                                                   ⃗ ≃ yp .                                     (4)
+
+If we the form a matrix Ẋ whose p’th row is given by ⃗x˙ Tp we can write the model for all data
+points as
+                                            ⃗ ≃ ⃗y .
+                                         Ẋ w                                                (5)
+The least squares cost function is then given by
+
+                                                       ⃗ 2.
+                                         ⃗ = ||⃗y − Ẋ w||
+                                       g(w)                                                     (6)
+
+Note that the matrix Ẋ is a P × (N + 1) matrix. In this exercise we will show that g(w)
+                                                                                      ⃗ is
+convex by showing that its Hessian matrix is positive semi-definite.
+
+
+                                                  6
+                     ⃗ can be written as
+6.1 First show the g(w)
+                                     1 T
+                                g(w)
+                                  ⃗ = w                ⃗ + ⃗y T ⃗y ,
+                                          ⃗ − 2⃗y T Ẋ w
+                                       ⃗ Aw                                                    (7)
+                                     2
+and determine the matrix A.
+6.2 Show that the Hessian matrix of g(w) ⃗ is equal to A, and show that A is positive semi-
+definite. Here, you may use the fact that the definition of positive semi-definite is that for any
+vector ⃗z we have
+                                          ⃗zT A⃗z ≥ 0.                                          (8)
+ ☛ This is interesting, since it can be shown that a convex function has no local minima that are
+ not also global minima. Furthermore, if the cost function is strictly convex, ⃗zT A⃗z > 0, which
+ is most often the case in practice, then there is a unique global minimum. Here, A is positive
+ definite if Ẋ has full column rank, which requires that P ≥ N + 1 and that the columns of Ẋ
+ are linearly independent.
+
+
+
+
+                                                 7
+
